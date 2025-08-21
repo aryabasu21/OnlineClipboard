@@ -1,0 +1,33 @@
+/* Minimal Prism.js dark theme tweak */
+code[class*="language-"],
+pre[class*="language-"] {
+  background: #0f1720;
+  color: #e2e8f0;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.token.comment {
+  color: #64748b;
+  font-style: italic;
+}
+.token.string {
+  color: #a3e635;
+}
+.token.number {
+  color: #fbbf24;
+}
+.token.keyword {
+  color: #60a5fa;
+}
+.token.function {
+  color: #f472b6;
+}
+.token.operator {
+  color: #94a3b8;
+}
+.token.punctuation {
+  color: #94a3b8;
+}
