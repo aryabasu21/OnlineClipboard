@@ -27,6 +27,7 @@ async function ensurePrettier(parser = "babel") {
   return bundle;
 }
 const STORAGE_KEY = "oc_last_session_v2";
+const JOIN_LINK_KEY = "oc_last_join_link";
 export default function App() {
   const [code, setCode] = useState(null);
   const [link, setLink] = useState(null);
@@ -72,6 +73,9 @@ export default function App() {
         STORAGE_KEY,
         JSON.stringify({ code: c, linkToken: token })
       );
+  // Also remember the full link for convenience
+  const fullLink = `${window.location.origin}/join/${token}`;
+  localStorage.setItem(JOIN_LINK_KEY, fullLink);
     } catch {}
     setLastSession({ code: c, linkToken: token });
   };
@@ -292,8 +296,8 @@ export default function App() {
   ) {
     if (!explicitCode || !explicitSecret) return;
     const ciphertext = await encryptText(explicitSecret, clipboard);
-    const replaceLatest =
-      allowHistory && firstVersionRef.current != null && version != null;
+  // Always update the latest history item instead of creating a new one on each change
+  const replaceLatest = !!allowHistory;
     const r = await window.__convexClient
       ?.mutation("functions:updateClipboard", {
         code: explicitCode,
@@ -482,6 +486,7 @@ export default function App() {
     if (forget) {
       try {
         localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(JOIN_LINK_KEY);
       } catch {}
       setLastSession(null);
     }
@@ -525,6 +530,18 @@ export default function App() {
   });
 
   useEffect(loadSession, []);
+
+  // Prefill join link from previous value if present and not overridden by URL
+  useEffect(() => {
+    if (code) return; // already in a session
+    if (joinLink) return; // user already typed or URL populated
+    const parts = window.location.pathname.split("/").filter(Boolean);
+    if (parts[0] === "join" && parts[1]) return; // will be handled by URL join effect
+    try {
+      const prev = localStorage.getItem(JOIN_LINK_KEY);
+      if (prev) setJoinLink(prev);
+    } catch {}
+  }, [code, joinLink]);
 
   useEffect(() => {
     if (
@@ -580,6 +597,9 @@ export default function App() {
       const token = parts[1];
       const fullLink = `${window.location.origin}/join/${token}`;
       setJoinLink(fullLink);
+      try {
+        localStorage.setItem(JOIN_LINK_KEY, fullLink);
+      } catch {}
       (async () => {
         try {
           const r = await window.__convexClient?.query(
@@ -600,6 +620,15 @@ export default function App() {
       })();
     }
   }, [code, joinLink]);
+
+  // Persist manual changes to the join link input for convenience
+  useEffect(() => {
+    try {
+      if (joinLink && joinLink.trim()) {
+        localStorage.setItem(JOIN_LINK_KEY, joinLink.trim());
+      }
+    } catch {}
+  }, [joinLink]);
 
   function copy(value, key) {
     const mark = () => {
@@ -742,11 +771,29 @@ export default function App() {
                 >
                   {attemptingAutoRejoin ? "Rejoining..." : "Rejoin"}
                 </button>
+                {(() => {
+                  const lastLink = (() => {
+                    try {
+                      return localStorage.getItem(JOIN_LINK_KEY) || "";
+                    } catch {
+                      return "";
+                    }
+                  })();
+                  return lastLink ? (
+                    <button
+                      className="secondary"
+                      onClick={() => copy(lastLink, "link")}
+                    >
+                      Copy Link
+                    </button>
+                  ) : null;
+                })()}
                 <button
                   className="secondary"
                   onClick={() => {
                     try {
                       localStorage.removeItem(STORAGE_KEY);
+                      localStorage.removeItem(JOIN_LINK_KEY);
                     } catch {}
                     setLastSession(null);
                   }}

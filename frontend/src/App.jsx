@@ -178,8 +178,7 @@ export default function App() {
     if (typeof r.autoFormat === "boolean") setAutoFormat(r.autoFormat);
     persistSession(r.code, r.linkToken);
     setupSocket(r.code, sec);
-    fetchHistory(r.code, sec);
-    fetchLatest(r.code, sec);
+  fetchHistory(r.code, sec);
     toast.success("Joined via link");
   }
 
@@ -257,8 +256,11 @@ export default function App() {
       setVersion(p.version);
       const text = await decryptText(sec, p.ciphertext);
       if (text != null) {
-        skipNextAutosave.current = true;
-        setClipboard(text);
+        // Preserve user's local draft on first load: only set if empty
+        if (!clipboard || !clipboard.trim()) {
+          skipNextAutosave.current = true;
+          setClipboard(text);
+        }
       }
     } catch {
       /* ignore */
@@ -492,7 +494,6 @@ export default function App() {
       setAllowHistory(r.allowHistory);
       setupSocket(c, sec);
       fetchHistory(c, sec);
-      fetchLatest(c, sec);
       toast.success("Rejoined " + c);
     } catch {
       try {
@@ -581,7 +582,6 @@ export default function App() {
           setAllowHistory(r.allowHistory);
           setupSocket(r.code, sec);
           fetchHistory(r.code, sec);
-          fetchLatest(r.code, sec);
         } catch {
           /* ignore */
         }
