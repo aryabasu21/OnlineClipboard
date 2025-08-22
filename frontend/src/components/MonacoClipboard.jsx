@@ -1,3 +1,4 @@
+import { read } from "fs";
 import React, {
   useEffect,
   useRef,
@@ -91,6 +92,7 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
         glyphMargin: false,
         folding: false,
         contextmenu: false,
+        readOnly: false,
       });
 
       // Collect real disposable objects only (addCommand returns an ID number, not disposable)
