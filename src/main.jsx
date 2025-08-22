@@ -41,10 +41,15 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const convexMeta =
+  (typeof document !== 'undefined' &&
+    document.querySelector('meta[name="convex-url"]')?.content) ||
+  undefined;
 const convexUrl =
   import.meta.env.VITE_CONVEX_URL ||
   import.meta.env.CONVEX_URL ||
-  window.CONVEX_URL;
+  window.CONVEX_URL ||
+  convexMeta;
 const rootEl = document.getElementById("app");
 
 if (!convexUrl) {

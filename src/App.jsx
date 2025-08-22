@@ -57,6 +57,7 @@ export default function App() {
   const [attemptingAutoRejoin, setAttemptingAutoRejoin] = useState(false);
 
   const socketRef = useRef(null);
+  const pollRef = useRef(null);
   const skipNextAutosave = useRef(false);
   const firstVersionRef = useRef(null);
   const manualLeaveRef = useRef(false);
@@ -82,11 +83,32 @@ export default function App() {
   };
 
   const setupSocket = useCallback((room, secretVal) => {
-    const url =
-      import.meta.env.VITE_SOCKET_URL ||
-      `${window.location.protocol}//${window.location.hostname}:${
-        import.meta.env.VITE_BACKEND_PORT || 4000
-      }`;
+    // Clear any existing polling
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+
+    // Determine socket endpoint: only use in dev unless an explicit URL is provided
+    const explicitUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
+    const isDev = import.meta.env.DEV;
+    const url = explicitUrl || (isDev
+      ? `${window.location.protocol}//localhost:${import.meta.env.VITE_BACKEND_PORT || 4000}`
+      : "");
+
+    if (!url) {
+      // No socket backend in production: fall back to polling latest
+      setConnectionStatus("connected"); // Hide banner; we'll poll
+      let tick = 0;
+      pollRef.current = setInterval(() => {
+        try {
+          fetchLatest(room, secretVal);
+          if ((tick++ % 4) === 0) fetchHistory(room, secretVal); // refresh history every ~10s
+        } catch {}
+      }, 2500);
+      return;
+    }
+
     const s = io(url, { transports: ["websocket"], reconnection: true });
     socketRef.current = s;
     setConnectionStatus("idle");
@@ -125,9 +147,13 @@ export default function App() {
     persistSession(c, token);
     setupSocket(c, sec);
 
-    if (clipboard.trim()) setTimeout(() => syncUpdate(c, sec, true), 60);
-    fetchHistory(c, sec);
-    fetchLatest(c, sec);
+    if (clipboard.trim()) {
+      setTimeout(() => syncUpdate(c, sec, true), 60);
+      // Prevent immediate autosave double-write when session just starts
+      skipNextAutosave.current = true;
+    }
+  fetchHistory(c, sec);
+  // latest will arrive via polling/socket shortly
     setShowShare(true);
   }
 
@@ -149,8 +175,7 @@ export default function App() {
     setAllowHistory(r.allowHistory);
     persistSession(r.code, r.linkToken);
     setupSocket(r.code, sec);
-    fetchHistory(r.code, sec);
-    fetchLatest(r.code, sec);
+  fetchHistory(r.code, sec);
     // keep UI quiet on expected join
   }
 
@@ -439,6 +464,10 @@ export default function App() {
       socketRef.current?.disconnect();
     } catch {}
     socketRef.current = null;
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
     setCode(null);
     setLink(null);
     setSecret(null);
@@ -472,8 +501,7 @@ export default function App() {
       setSecret(sec);
       setAllowHistory(r.allowHistory);
       setupSocket(c, sec);
-      fetchHistory(c, sec);
-      fetchLatest(c, sec);
+  fetchHistory(c, sec);
       // silent rejoin success
     } catch {
       try {
@@ -565,7 +593,6 @@ export default function App() {
           setAllowHistory(r.allowHistory);
           setupSocket(r.code, sec);
           fetchHistory(r.code, sec);
-          fetchLatest(r.code, sec);
         } catch {}
       })();
     }
