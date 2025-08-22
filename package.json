@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:socket\" \"npm:convex\" \"vite\"",
+  "dev": "concurrently \"npm:socket\" \"npm:convex\" \"vite\"",
     "convex": "convex dev",
     "socket": "node server.js",
-    "build": "vite build",
+  "build": "vite build || npx vite@^5 build",
     "preview": "vite preview",
     "clean": "rimraf node_modules .vite || true"
   },
