@@ -96,6 +96,18 @@ export function HistoryList({
                   onRestore(item);
                 }
               }}
+              onClick={(e) => {
+                const t = e.target;
+                if (t?.closest) {
+                  if (
+                    t.closest(".hist-actions") ||
+                    t.closest(".expand-btn") ||
+                    t.closest('input[type="checkbox"]')
+                  )
+                    return;
+                }
+                onRestore(item);
+              }}
             >
               <div className="hist-main" style={{ "--lines": maxLines }}>
                 <input

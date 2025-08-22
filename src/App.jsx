@@ -326,6 +326,7 @@ export default function App() {
     if (text != null) {
       skipNextAutosave.current = true;
       setClipboard(text);
+  if (item.lang && item.lang !== lang) setLang(item.lang);
       // silent restore
     }
   }

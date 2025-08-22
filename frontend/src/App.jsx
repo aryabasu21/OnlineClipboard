@@ -304,7 +304,8 @@ export default function App() {
     if (text != null) {
       skipNextAutosave.current = true;
       setClipboard(text);
-      toast("Version " + item.version + " restored");
+  if (item.lang && item.lang !== lang) setLang(item.lang);
+  toast("Version " + item.version + " restored");
     }
   }
 
