@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://clip.stylnode.in/sitemap.xml

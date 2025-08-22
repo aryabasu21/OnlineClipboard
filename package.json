@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "dev": "concurrently \"npm:socket\" \"npm:convex\" \"vite\"",
+    "dev": "concurrently \"npm:socket\" \"npm:convex\" \"vite\"",
     "convex": "convex dev",
     "socket": "node server.js",
-  "build": "vite build || npx vite@^5 build",
+    "build": "vite build || npx vite@^5 build",
     "preview": "vite preview",
     "clean": "rimraf node_modules .vite || true"
   },
@@ -22,14 +22,14 @@
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.6.0",
     "socket.io-client": "^4.7.5",
-  "nanoid": "^5.0.7",
-  "vite": "^5.3.1",
-  "@vitejs/plugin-react": "^4.3.1"
+    "nanoid": "^5.0.7",
+    "vite": "^5.3.1",
+    "@vitejs/plugin-react": "^4.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",
     "concurrently": "^8.2.2",
     "rimraf": "^5.0.5",
-  "typescript": "^5.5.4"
+    "typescript": "^5.5.4"
   }
 }

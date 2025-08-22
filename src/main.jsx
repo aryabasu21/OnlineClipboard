@@ -42,7 +42,7 @@ class ErrorBoundary extends React.Component {
 }
 
 const convexMeta =
-  (typeof document !== 'undefined' &&
+  (typeof document !== "undefined" &&
     document.querySelector('meta[name="convex-url"]')?.content) ||
   undefined;
 const convexUrl =

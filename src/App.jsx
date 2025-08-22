@@ -73,9 +73,9 @@ export default function App() {
         STORAGE_KEY,
         JSON.stringify({ code: c, linkToken: token })
       );
-  // Also remember the full link for convenience
-  const fullLink = `${window.location.origin}/join/${token}`;
-  localStorage.setItem(JOIN_LINK_KEY, fullLink);
+      // Also remember the full link for convenience
+      const fullLink = `${window.location.origin}/join/${token}`;
+      localStorage.setItem(JOIN_LINK_KEY, fullLink);
     } catch {}
     setLastSession({ code: c, linkToken: token });
   };
@@ -96,9 +96,11 @@ export default function App() {
     // Determine socket endpoint: only use in dev unless an explicit URL is provided
     const explicitUrl = (import.meta.env.VITE_SOCKET_URL || "").trim();
     const isDev = import.meta.env.DEV;
-    const url = explicitUrl || (isDev
-      ? `${window.location.protocol}//localhost:${import.meta.env.VITE_BACKEND_PORT || 4000}`
-      : "");
+    const url =
+      explicitUrl ||
+      (isDev
+        ? `${window.location.protocol}//localhost:${import.meta.env.VITE_BACKEND_PORT || 4000}`
+        : "");
 
     if (!url) {
       // No socket backend in production: fall back to polling latest
@@ -107,7 +109,7 @@ export default function App() {
       pollRef.current = setInterval(() => {
         try {
           fetchLatest(room, secretVal);
-          if ((tick++ % 4) === 0) fetchHistory(room, secretVal); // refresh history every ~10s
+          if (tick++ % 4 === 0) fetchHistory(room, secretVal); // refresh history every ~10s
         } catch {}
       }, 2500);
       return;
@@ -156,8 +158,8 @@ export default function App() {
       // Prevent immediate autosave double-write when session just starts
       skipNextAutosave.current = true;
     }
-  fetchHistory(c, sec);
-  // latest will arrive via polling/socket shortly
+    fetchHistory(c, sec);
+    // latest will arrive via polling/socket shortly
     setShowShare(true);
   }
 
@@ -179,7 +181,7 @@ export default function App() {
     setAllowHistory(r.allowHistory);
     persistSession(r.code, r.linkToken);
     setupSocket(r.code, sec);
-  fetchHistory(r.code, sec);
+    fetchHistory(r.code, sec);
     // keep UI quiet on expected join
   }
 
@@ -296,8 +298,8 @@ export default function App() {
   ) {
     if (!explicitCode || !explicitSecret) return;
     const ciphertext = await encryptText(explicitSecret, clipboard);
-  // Always update the latest history item instead of creating a new one on each change
-  const replaceLatest = !!allowHistory;
+    // Always update the latest history item instead of creating a new one on each change
+    const replaceLatest = !!allowHistory;
     const r = await window.__convexClient
       ?.mutation("functions:updateClipboard", {
         code: explicitCode,
@@ -326,7 +328,7 @@ export default function App() {
     if (text != null) {
       skipNextAutosave.current = true;
       setClipboard(text);
-  if (item.lang && item.lang !== lang) setLang(item.lang);
+      if (item.lang && item.lang !== lang) setLang(item.lang);
       // silent restore
     }
   }
@@ -487,7 +489,7 @@ export default function App() {
     if (forget) {
       try {
         localStorage.removeItem(STORAGE_KEY);
-  localStorage.removeItem(JOIN_LINK_KEY);
+        localStorage.removeItem(JOIN_LINK_KEY);
       } catch {}
       setLastSession(null);
     }
@@ -510,7 +512,7 @@ export default function App() {
       setSecret(sec);
       setAllowHistory(r.allowHistory);
       setupSocket(c, sec);
-  fetchHistory(c, sec);
+      fetchHistory(c, sec);
       // silent rejoin success
     } catch {
       try {

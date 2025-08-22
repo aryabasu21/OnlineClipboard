@@ -178,7 +178,7 @@ export default function App() {
     if (typeof r.autoFormat === "boolean") setAutoFormat(r.autoFormat);
     persistSession(r.code, r.linkToken);
     setupSocket(r.code, sec);
-  fetchHistory(r.code, sec);
+    fetchHistory(r.code, sec);
     toast.success("Joined via link");
   }
 
@@ -304,8 +304,8 @@ export default function App() {
     if (text != null) {
       skipNextAutosave.current = true;
       setClipboard(text);
-  if (item.lang && item.lang !== lang) setLang(item.lang);
-  toast("Version " + item.version + " restored");
+      if (item.lang && item.lang !== lang) setLang(item.lang);
+      toast("Version " + item.version + " restored");
     }
   }
 

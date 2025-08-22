@@ -124,7 +124,7 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
         automaticLayout: true,
         wordWrap: "on",
         minimap: { enabled: false },
-  readOnly: false,
+        readOnly: false,
         fontSize: 14,
         lineHeight: 22,
         fontFamily:
