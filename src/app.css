@@ -321,6 +321,10 @@ textarea {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
+  /* Ensure users can select text inside */
+  user-select: text;
+  -webkit-user-select: text;
+  -ms-user-select: text;
 }
 
 .landing-editor .monaco-clipboard {

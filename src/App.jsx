@@ -276,8 +276,11 @@ export default function App() {
       setVersion(p.version);
       const text = await decryptText(sec, p.ciphertext);
       if (text != null) {
-        skipNextAutosave.current = true;
-        setClipboard(text);
+        // Do not clobber a non-empty local draft on first load
+        if (!clipboard || !clipboard.trim()) {
+          skipNextAutosave.current = true;
+          setClipboard(text);
+        }
       }
     } catch {}
   }
