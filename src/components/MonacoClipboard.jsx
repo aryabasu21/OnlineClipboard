@@ -4,16 +4,68 @@ import React, {
   forwardRef,
   useImperativeHandle,
 } from "react";
-// We'll dynamically import monaco-editor to keep initial bundle lean.
+// Ensure Monaco editor base styles are loaded (needed when using ESM editor.api)
 let monacoPromise;
 async function getMonaco() {
   if (!monacoPromise) {
-    monacoPromise = import(/* @vite-ignore */ "monaco-editor");
+    // Import lean ESM editor API instead of full package
+    monacoPromise = import(
+      /* @vite-ignore */ "monaco-editor/esm/vs/editor/editor.api"
+    );
+    // Setup workers once (Vite-friendly URLs)
+    if (!window.__monacoWorkersSetup) {
+      window.MonacoEnvironment = {
+        getWorker: function (_moduleId, label) {
+          if (label === "json") {
+            return new Worker(
+              new URL(
+                "monaco-editor/esm/vs/language/json/json.worker.js",
+                import.meta.url
+              ),
+              { type: "module" }
+            );
+          }
+          if (label === "css" || label === "scss" || label === "less") {
+            return new Worker(
+              new URL(
+                "monaco-editor/esm/vs/language/css/css.worker.js",
+                import.meta.url
+              ),
+              { type: "module" }
+            );
+          }
+          if (label === "html" || label === "handlebars" || label === "razor") {
+            return new Worker(
+              new URL(
+                "monaco-editor/esm/vs/language/html/html.worker.js",
+                import.meta.url
+              ),
+              { type: "module" }
+            );
+          }
+          if (label === "typescript" || label === "javascript") {
+            return new Worker(
+              new URL(
+                "monaco-editor/esm/vs/language/typescript/ts.worker.js",
+                import.meta.url
+              ),
+              { type: "module" }
+            );
+          }
+          return new Worker(
+            new URL(
+              "monaco-editor/esm/vs/editor/editor.worker.js",
+              import.meta.url
+            ),
+            { type: "module" }
+          );
+        },
+      };
+      window.__monacoWorkersSetup = true;
+    }
   }
   return monacoPromise;
 }
-
-// Map our internal language names to Monaco identifiers
 const LANG_MAP = {
   plain: "plaintext",
   javascript: "javascript",
@@ -24,10 +76,9 @@ const LANG_MAP = {
   csharp: "csharp",
   cpp: "cpp",
   go: "go",
-  rust: "rust", // may need community extension; fallback plaintext
+  rust: "rust",
   sql: "sql",
 };
-
 export const MonacoClipboard = forwardRef(function MonacoClipboard(
   { value, onChange, lang, editingVersion, onSaveEdit, onCancelEdit, onPaste },
   ref
@@ -35,23 +86,19 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
   const containerRef = useRef(null);
   const editorRef = useRef(null);
   const lastValueRef = useRef(value);
-
   useImperativeHandle(ref, () => ({
-    focus: () => {
-      editorRef.current?.focus();
-    },
+    focus: () => editorRef.current?.focus(),
     getEditor: () => editorRef.current,
   }));
-
-  // Initialize editor
   useEffect(() => {
     if (!containerRef.current) return;
-    let mounted = true;
+    let cancelled = false;
+    let cleanup = () => {};
+
     (async () => {
       const monaco = await getMonaco();
-      if (!mounted || !containerRef.current) return;
+      if (cancelled || !containerRef.current) return;
       const { editor } = monaco;
-      const modelLang = LANG_MAP[lang] || "plaintext";
       editor.defineTheme("github-dark", {
         base: "vs-dark",
         inherit: true,
@@ -69,10 +116,10 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
           "editorIndentGuide.activeBackground": "#484f58",
         },
       });
-
-      editorRef.current = editor.create(containerRef.current, {
-        value: value,
-        language: modelLang,
+      const isPlainInit = lang === "plain";
+      const instance = editor.create(containerRef.current, {
+        value,
+        language: LANG_MAP[lang] || "plaintext",
         theme: "github-dark",
         automaticLayout: true,
         wordWrap: "on",
@@ -83,72 +130,65 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
           "JetBrains Mono, Fira Code, Cascadia Code, Consolas, monospace",
         smoothScrolling: true,
         scrollBeyondLastLine: false,
-        padding: { top: 8, bottom: 16 },
+        padding: { top: 12, bottom: 16 },
         renderWhitespace: "selection",
         tabSize: 2,
+        lineNumbers: isPlainInit ? "off" : "on",
         lineNumbersMinChars: 2,
-        lineDecorationsWidth: 6,
+        lineDecorationsWidth: 10,
         glyphMargin: false,
         folding: false,
         contextmenu: false,
       });
+      editorRef.current = instance;
 
-      // Collect real disposable objects only (addCommand returns an ID number, not disposable)
       const disposables = [];
-      const commandIds = [];
-
-      // Raw paste capture (before Monaco processes) to allow custom formatting logic
       function handleNativePaste(e) {
-        if (onPaste) {
-          const res = onPaste(e);
-          // If handler prevented default & updated value, Monaco will receive new prop via effect.
-          return res;
-        }
+        if (onPaste) onPaste(e);
       }
       containerRef.current.addEventListener("paste", handleNativePaste, true);
-
-      // Change listener
       disposables.push(
-        editorRef.current.onDidChangeModelContent(() => {
-          const v = editorRef.current.getValue();
+        instance.onDidChangeModelContent(() => {
+          const v = instance.getValue();
           lastValueRef.current = v;
           onChange(v);
         })
       );
-
-      // Keybindings for save/cancel while editing a version
       const { KeyMod, KeyCode } = monaco;
-      commandIds.push(
-        editorRef.current.addCommand(KeyMod.CtrlCmd | KeyCode.Enter, () => {
+      disposables.push(
+        instance.addCommand(KeyMod.CtrlCmd | KeyCode.Enter, () => {
           if (editingVersion != null) onSaveEdit?.();
         })
       );
-      commandIds.push(
-        editorRef.current.addCommand(KeyCode.Escape, () => {
+      disposables.push(
+        instance.addCommand(KeyCode.Escape, () => {
           if (editingVersion != null) onCancelEdit?.();
         })
       );
 
-      // Cleanup
-      return () => {
-        containerRef.current?.removeEventListener(
-          "paste",
-          handleNativePaste,
-          true
-        );
+      cleanup = () => {
+        try {
+          containerRef.current?.removeEventListener(
+            "paste",
+            handleNativePaste,
+            true
+          );
+        } catch {}
         disposables.forEach(
           (d) => d && typeof d.dispose === "function" && d.dispose()
         );
-        editorRef.current?.dispose();
+        try {
+          instance.dispose();
+        } catch {}
+        if (editorRef.current === instance) editorRef.current = null;
       };
     })();
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
-  // Update language when changed
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, []);
   useEffect(() => {
     if (!editorRef.current) return;
     (async () => {
@@ -161,13 +201,17 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
         ).catch(() => {});
       }
       monaco.editor.setModelLanguage(model, monacoLang);
+      const isPlain = lang === "plain";
       editorRef.current.updateOptions({
-        lineNumbers: lang === "plain" ? "off" : "on",
+        lineNumbers: isPlain ? "off" : "on",
+        lineNumbersMinChars: 2,
+        lineDecorationsWidth: 10,
+        glyphMargin: false,
+        folding: false,
+        padding: { top: 12, bottom: 16 },
       });
     })();
   }, [lang]);
-
-  // External value updates (e.g., restore version). Avoid loops.
   useEffect(() => {
     if (!editorRef.current) return;
     if (value !== lastValueRef.current) {
@@ -177,6 +221,5 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
       lastValueRef.current = value;
     }
   }, [value]);
-
   return <div className="monaco-clipboard" ref={containerRef} />;
 });

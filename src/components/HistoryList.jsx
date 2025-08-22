@@ -1,13 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 
-/**
- * HistoryList – isolated, enhanced UI for version history.
- * Features:
- *  - Smooth hover + selection visuals
- *  - Optional Prism syntax highlighting (lazy-loaded)
- *  - Fade-out for long previews
- *  - Accessible labels / roles
- */
 export function HistoryList({
   items,
   selected,
@@ -23,20 +15,14 @@ export function HistoryList({
 }) {
   const [prismReady, setPrismReady] = useState(false);
   const loadingRef = useRef(false);
-
-  // Lazy-load Prism only if highlighting enabled and there is at least one non-plain language.
   useEffect(() => {
     if (!enableHighlight || prismReady || loadingRef.current) return;
     const hasCode = items.some((it) => it.lang && it.lang !== "plain");
-    if (!hasCode) return; // skip loading for plain text only
+    if (!hasCode) return;
     loadingRef.current = true;
     (async () => {
       try {
-        // Dynamic import (code-split) Prism core
-        const Prism =
-          (await import(/* webpackChunkName: 'prism-core' */ "prismjs"))
-            .default || (await import("prismjs"));
-        // Attempt to load a few common languages dynamically (best effort; ignore failures)
+        await import("prismjs");
         const langs = [
           "javascript",
           "typescript",
@@ -56,33 +42,25 @@ export function HistoryList({
             )
           )
         );
-        // After microtask, highlight existing code blocks
         requestAnimationFrame(() => {
-          if (window.Prism && window.Prism.highlightAll)
-            window.Prism.highlightAll();
+          if (window.Prism?.highlightAll) window.Prism.highlightAll();
         });
         setPrismReady(true);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     })();
   }, [enableHighlight, prismReady, items]);
-
-  // Re-highlight when items change (only if Prism loaded)
   useEffect(() => {
     if (prismReady && window.Prism?.highlightAll) {
       const id = requestAnimationFrame(() => window.Prism.highlightAll());
       return () => cancelAnimationFrame(id);
     }
   }, [items, prismReady]);
-
   if (!items.length)
     return (
       <div className="hist-empty" role="status">
         No history
       </div>
     );
-
   return (
     <ul className="history-grid" role="list" aria-label="Clipboard history">
       {items
@@ -93,7 +71,6 @@ export function HistoryList({
           const isEditing = editingVersion === item.version;
           const lang = (item.lang || "plain").toLowerCase();
           const isExpanded = expanded.has(item.version);
-          // Heuristic to decide if expand control needed (long content or multiline)
           const showExpand =
             !!item.preview &&
             (item.preview.length > 140 || item.preview.includes("\n"));
@@ -120,7 +97,6 @@ export function HistoryList({
                 }
               }}
             >
-              {/* <div className="hist-left"></div> */}
               <div className="hist-main" style={{ "--lines": maxLines }}>
                 <input
                   aria-label={isSel ? "Deselect version" : "Select version"}

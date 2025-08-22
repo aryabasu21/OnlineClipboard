@@ -12,6 +12,7 @@ Vite vanilla JS frontend implementing:
 This project can deploy the static frontend to GitHub Pages. The workflow `deploy-gh-pages.yml` builds `frontend` and publishes `dist`.
 
 Steps:
+
 1. Ensure your default branch is `main` (or `master`).
 2. Replace the placeholder domain in `public/CNAME` with your real custom domain (apex or subdomain). Commit.
 3. In the repo settings: Pages -> Build and deployment -> Source: GitHub Actions. Save.
@@ -23,15 +24,19 @@ Steps:
 7. After DNS propagates (can take minutes to 24h), HTTPS should auto-enable. You may need to toggle "Enforce HTTPS" once the certificate is issued.
 
 Environment variables:
+
 - Set `VITE_API_BASE` and `VITE_SOCKET_URL` as Repository Variables or Secrets if different from origin. They map to build-time env in the workflow.
 
 SPA routing:
+
 - `404.html` is a copy of `index.html` (added in workflow) so client-side routes (e.g. `/join/<token>`) load correctly.
 
 Cache busting:
+
 - Vite outputs hashed assets; safe to enable long-lived static caching at CDN layer.
 
 Troubleshooting:
+
 - If the custom domain shows the default GitHub 404, verify the `CNAME` file is present in the deployed `gh-pages` branch (Pages artifact) and DNS points correctly.
 - If HTTPS not available after some time, remove & re-add the custom domain in Pages settings to re-trigger certificate issuance.
 

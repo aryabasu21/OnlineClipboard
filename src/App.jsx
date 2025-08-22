@@ -8,43 +8,38 @@ import { useClipboardFormatting } from "./hooks/useClipboardFormatting.js";
 import { MonacoClipboard } from "./components/MonacoClipboard.jsx";
 import toast, { Toaster } from "react-hot-toast";
 
-// Lazy-load prettier + plugins only when needed
 const prettierBundleRef = { current: null };
-async function ensurePrettier() {
-  if (prettierBundleRef.current) return prettierBundleRef.current;
-  const [prettier, babel, ts, estree] = await Promise.all([
-    import("prettier/standalone"),
-    import("prettier/plugins/babel"),
-    import("prettier/plugins/typescript"),
-    import("prettier/plugins/estree"),
-  ]);
-  prettierBundleRef.current = {
-    prettier: prettier.default,
-    plugins: [babel, ts, estree].map((m) => m.default || m),
-  };
-  return prettierBundleRef.current;
+async function ensurePrettier(parser = "babel") {
+  // Cache by parser to avoid pulling all plugins in dev
+  if (prettierBundleRef.current?.parser === parser)
+    return prettierBundleRef.current;
+
+  const prettier = (await import("prettier/standalone")).default;
+  let plugin;
+  if (parser === "typescript") {
+    plugin = (await import("prettier/plugins/typescript")).default;
+  } else {
+    plugin = (await import("prettier/plugins/babel")).default;
+  }
+
+  const bundle = { prettier, plugins: [plugin], parser };
+  prettierBundleRef.current = bundle;
+  return bundle;
 }
-
-// Storage key for auto rejoin
 const STORAGE_KEY = "oc_last_session_v2";
-
 export default function App() {
-  // Session/core state
   const [code, setCode] = useState(null);
   const [link, setLink] = useState(null);
   const [secret, setSecret] = useState(null);
-  const [connectionStatus, setConnectionStatus] = useState("idle"); // idle|connected|reconnecting|disconnected
-  // Content
+  const [connectionStatus, setConnectionStatus] = useState("idle");
   const [clipboard, setClipboard] = useState("");
   const [version, setVersion] = useState(null);
-  // History
-  const [history, setHistory] = useState([]); // decrypted previews
+  const [history, setHistory] = useState([]);
   const [allowHistory, setAllowHistory] = useState(true);
   const [selected, setSelected] = useState(new Set());
   const [expandedHistory, setExpandedHistory] = useState(new Set());
   const [editingVersion, setEditingVersion] = useState(null);
   const [saveError, setSaveError] = useState(null);
-  // Prefs/UI
   const [lang, setLang] = useState("plain");
   const [autoFormat, setAutoFormat] = useState(true);
   const [showShare, setShowShare] = useState(false);
@@ -55,27 +50,21 @@ export default function App() {
     clipboard: false,
   });
   const [autoSynced, setAutoSynced] = useState(false);
-  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false); // mobile overlay
-  // Join helpers & persistence
+  const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [joinCode, setJoinCode] = useState("");
   const [joinLink, setJoinLink] = useState("");
   const [lastSession, setLastSession] = useState(null);
   const [attemptingAutoRejoin, setAttemptingAutoRejoin] = useState(false);
-  // react-hot-toast replaces custom toasts
 
-  // Refs (mutable helpers)
   const socketRef = useRef(null);
   const skipNextAutosave = useRef(false);
   const firstVersionRef = useRef(null);
   const manualLeaveRef = useRef(false);
-  const textareaRef = useRef(null); // legacy ref; reused for focusing via Monaco wrapper
+  const textareaRef = useRef(null);
   const originalCipherRef = useRef(null);
   const originalPlainRef = useRef(null);
 
-  // Derived secret builder
   const makeSecret = (c, t) => `${c}:${t}`;
-
-  // Persist / load session
   const persistSession = (c, token) => {
     try {
       localStorage.setItem(
@@ -92,14 +81,16 @@ export default function App() {
     } catch {}
   };
 
-  // Socket setup
   const setupSocket = useCallback((room, secretVal) => {
     const url =
       import.meta.env.VITE_SOCKET_URL ||
-      `${window.location.protocol}//${window.location.hostname}:${import.meta.env.VITE_BACKEND_PORT || 4000}`;
+      `${window.location.protocol}//${window.location.hostname}:${
+        import.meta.env.VITE_BACKEND_PORT || 4000
+      }`;
     const s = io(url, { transports: ["websocket"], reconnection: true });
     socketRef.current = s;
     setConnectionStatus("idle");
+
     s.on("connect", () => {
       setConnectionStatus("connected");
       s.emit("join", { room });
@@ -107,46 +98,48 @@ export default function App() {
     s.on("reconnect_attempt", () => setConnectionStatus("reconnecting"));
     s.on("disconnect", () => setConnectionStatus("disconnected"));
     s.on("connect_error", () => setConnectionStatus("disconnected"));
+
     s.on("clipboard:updated", async ({ ciphertext, version }) => {
       setVersion(version);
       const text = await decryptText(secretVal, ciphertext);
-      if (text != null) {
-        setClipboard((prev) => (prev === text ? prev : text));
-      }
+      if (text != null) setClipboard((p) => (p === text ? p : text));
       fetchHistory(room, secretVal);
     });
   }, []);
 
-  // Backend actions
   async function createSession() {
     if (code) return;
     const r = await window.__convexClient
       ?.mutation("functions:createSession", {})
       .catch(() => null);
     if (!r) return alert("Failed to create session");
+
     const c = r.code;
     const token = r.linkToken;
     const sec = makeSecret(c, token);
+
     setCode(c);
     setLink(`${window.location.origin}/join/${token}`);
     setSecret(sec);
-    setAllowHistory(true); // default
+    setAllowHistory(true);
     persistSession(c, token);
     setupSocket(c, sec);
+
     if (clipboard.trim()) setTimeout(() => syncUpdate(c, sec, true), 60);
     fetchHistory(c, sec);
     fetchLatest(c, sec);
     setShowShare(true);
-    toast.success("Session created");
   }
 
   async function joinByCode() {
     const codeVal = joinCode.trim();
     if (codeVal.length !== 5) return alert("Need 5-char code");
+
     const r = await window.__convexClient
       ?.query("functions:getSession", { code: codeVal })
       .catch(() => null);
     if (!r) return alert("Not found");
+
     const sec = makeSecret(r.code, r.linkToken);
     setCode(r.code);
     setLink(`${window.location.origin}/join/${r.linkToken}`);
@@ -158,17 +151,19 @@ export default function App() {
     setupSocket(r.code, sec);
     fetchHistory(r.code, sec);
     fetchLatest(r.code, sec);
-    toast.success("Joined session " + r.code);
+    // keep UI quiet on expected join
   }
 
   async function joinByLink() {
     if (!joinLink.trim()) return;
     const token = joinLink.trim().split("/").pop();
     if (!token) return alert("Invalid link");
+
     const r = await window.__convexClient
       ?.query("functions:joinByToken", { linkToken: token })
       .catch(() => null);
     if (!r) return alert("Not found");
+
     const sec = makeSecret(r.code, r.linkToken);
     setCode(r.code);
     setLink(`${window.location.origin}/join/${token}`);
@@ -180,7 +175,7 @@ export default function App() {
     setupSocket(r.code, sec);
     fetchHistory(r.code, sec);
     fetchLatest(r.code, sec);
-    toast.success("Joined via link");
+    // quiet join via link
   }
 
   async function fetchHistory(c = code, sec = secret) {
@@ -190,6 +185,7 @@ export default function App() {
         (await window.__convexClient?.query("functions:getHistory", {
           code: c,
         })) || [];
+
       if (sec) {
         const items = await Promise.all(
           raw.map(async (it) => {
@@ -217,8 +213,8 @@ export default function App() {
             }
           })
         );
+
         setHistory(items);
-        // preserve expanded items if still present
         setExpandedHistory(
           (prev) =>
             new Set([...prev].filter((v) => items.some((i) => i.version === v)))
@@ -231,6 +227,7 @@ export default function App() {
       } else {
         setHistory(raw.map((it) => ({ ...it, preview: "(loading...)" })));
       }
+
       const meta = await window.__convexClient
         ?.query("functions:getSession", { code: c })
         .catch(() => null);
@@ -240,10 +237,7 @@ export default function App() {
         if (typeof meta.autoFormat === "boolean")
           setAutoFormat(meta.autoFormat);
       }
-    } catch {
-      /* ignore */
-      toast.error("History fetch failed");
-    }
+    } catch {}
   }
 
   async function fetchLatest(c = code, sec = secret) {
@@ -260,10 +254,7 @@ export default function App() {
         skipNextAutosave.current = true;
         setClipboard(text);
       }
-    } catch {
-      /* ignore */
-      toast.error("Latest fetch failed");
-    }
+    } catch {}
   }
 
   async function syncUpdate(
@@ -274,7 +265,7 @@ export default function App() {
     if (!explicitCode || !explicitSecret) return;
     const ciphertext = await encryptText(explicitSecret, clipboard);
     const replaceLatest =
-      allowHistory && firstVersionRef.current != null && version != null; // simple heuristic
+      allowHistory && firstVersionRef.current != null && version != null;
     const r = await window.__convexClient
       ?.mutation("functions:updateClipboard", {
         code: explicitCode,
@@ -284,6 +275,7 @@ export default function App() {
       })
       .catch(() => null);
     if (!r) return;
+
     setVersion(r.version);
     if (!firstVersionRef.current) firstVersionRef.current = r.version;
     socketRef.current?.emit("clipboard:update", {
@@ -292,9 +284,9 @@ export default function App() {
       version: r.version,
     });
     if (!silent) fetchHistory(explicitCode, explicitSecret);
+
     setAutoSynced(true);
     setTimeout(() => setAutoSynced(false), 1500);
-    toast.success("Synced v" + r.version);
   }
 
   async function restore(item) {
@@ -302,7 +294,7 @@ export default function App() {
     if (text != null) {
       skipNextAutosave.current = true;
       setClipboard(text);
-      toast("Version " + item.version + " restored");
+      // silent restore
     }
   }
 
@@ -322,7 +314,7 @@ export default function App() {
       n.delete(item.version);
       return n;
     });
-    toast("Deleted v" + item.version);
+    // silent delete
   }
 
   function toggleSelect(v) {
@@ -347,7 +339,7 @@ export default function App() {
       versions.forEach((v) => n.delete(v));
       return n;
     });
-    toast("Deleted " + versions.length + " items");
+    // silent batch delete
   }
 
   async function edit(item) {
@@ -358,7 +350,7 @@ export default function App() {
     setTimeout(() => {
       originalPlainRef.current = clipboard;
     }, 25);
-    toast("Editing v" + item.version);
+    // silent edit start
   }
 
   function cancelEdit() {
@@ -372,20 +364,16 @@ export default function App() {
       originalCipherRef.current = null;
       originalPlainRef.current = null;
     })();
-    toast("Edit cancelled");
+    // silent cancel
   }
 
   async function toggleExpand(item) {
     setExpandedHistory((prev) => {
       const n = new Set(prev);
-      if (n.has(item.version)) {
-        n.delete(item.version);
-        return n;
-      }
-      n.add(item.version);
+      if (n.has(item.version)) n.delete(item.version);
+      else n.add(item.version);
       return n;
     });
-    // If we haven't loaded full text yet (preview only), decrypt and replace preview with full (non-truncated) in-place.
     if (secret) {
       try {
         const full = await decryptText(secret, item.ciphertext);
@@ -396,15 +384,9 @@ export default function App() {
             )
           );
         }
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
-    toast(
-      (expandedHistory.has(item.version) ? "Collapsed " : "Expanded ") +
-        "v" +
-        item.version
-    );
+    // silent expand/collapse
   }
 
   async function saveEdit() {
@@ -437,10 +419,9 @@ export default function App() {
       setEditingVersion(null);
       setAutoSynced(true);
       setTimeout(() => setAutoSynced(false), 1300);
-      toast.success("Saved edit v" + editingVersion);
+      // success is visible in history update; no toast
     } catch (e) {
       setSaveError(e?.message || "Save failed");
-      toast.error("Save failed");
     }
   }
 
@@ -449,7 +430,7 @@ export default function App() {
       ?.mutation("functions:toggleHistory", { code })
       .catch(() => {});
     fetchHistory();
-    toast("History " + (!allowHistory ? "enabled" : "disabled"));
+    // silent toggle
   }
 
   function leave({ forget = false } = {}) {
@@ -472,7 +453,7 @@ export default function App() {
       } catch {}
       setLastSession(null);
     }
-    toast("Left session" + (forget ? " (forgot)" : ""));
+    // silent leave
   }
 
   async function rejoin(auto = false) {
@@ -493,19 +474,18 @@ export default function App() {
       setupSocket(c, sec);
       fetchHistory(c, sec);
       fetchLatest(c, sec);
-      toast.success("Rejoined " + c);
+      // silent rejoin success
     } catch {
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch {}
       setLastSession(null);
-      toast.error("Rejoin failed");
+      // keep errors visible elsewhere; silent here
     } finally {
       setAttemptingAutoRejoin(false);
     }
   }
 
-  // Formatting hook
   const handlePaste = useClipboardFormatting({
     lang,
     autoFormat,
@@ -513,8 +493,8 @@ export default function App() {
     ensurePrettier,
   });
 
-  // Effects
   useEffect(loadSession, []);
+
   useEffect(() => {
     if (
       !code &&
@@ -525,6 +505,7 @@ export default function App() {
       rejoin(true);
     }
   }, [lastSession, code, attemptingAutoRejoin]);
+
   useEffect(() => {
     if (!code) return;
     if (editingVersion != null) return;
@@ -537,6 +518,7 @@ export default function App() {
     }, 1400);
     return () => clearTimeout(h);
   }, [clipboard, editingVersion, code, lang, autoFormat]);
+
   useEffect(() => {
     let active = true;
     (async () => {
@@ -559,9 +541,9 @@ export default function App() {
       active = false;
     };
   }, [link, showShare]);
-  // Detect /join/<token> deep link once (must be outside conditional render for hooks rule)
+
   useEffect(() => {
-    if (code) return; // already in a session
+    if (code) return;
     const parts = window.location.pathname.split("/").filter(Boolean);
     if (parts[0] === "join" && parts[1] && !joinLink) {
       const token = parts[1];
@@ -571,7 +553,9 @@ export default function App() {
         try {
           const r = await window.__convexClient?.query(
             "functions:joinByToken",
-            { linkToken: token }
+            {
+              linkToken: token,
+            }
           );
           if (!r || code) return;
           const sec = makeSecret(r.code, r.linkToken);
@@ -582,14 +566,11 @@ export default function App() {
           setupSocket(r.code, sec);
           fetchHistory(r.code, sec);
           fetchLatest(r.code, sec);
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       })();
     }
   }, [code, joinLink]);
 
-  // Copy helper (fallback included)
   function copy(value, key) {
     const mark = () => {
       setCopyState((s) => ({ ...s, [key]: true }));
@@ -621,7 +602,6 @@ export default function App() {
     }
   }
 
-  // Landing / pre-session screen
   if (!code) {
     return (
       <div className="landing">
@@ -665,6 +645,7 @@ export default function App() {
               Auto-format
             </label>
           </div>
+
           <div className="landing-editor">
             <MonacoClipboard
               ref={textareaRef}
@@ -675,6 +656,7 @@ export default function App() {
               onPaste={handlePaste}
             />
           </div>
+
           <div className="actions">
             <button onClick={createSession} disabled={!clipboard.trim()}>
               Create Share Session
@@ -683,8 +665,10 @@ export default function App() {
               Clear
             </button>
           </div>
+
           <div className="divider" />
           <h2>Join Existing</h2>
+
           <div className="join-row">
             <input
               placeholder="5-char code"
@@ -700,6 +684,7 @@ export default function App() {
               Join by Code
             </button>
           </div>
+
           <div className="join-row">
             <input
               placeholder="Paste sharable link"
@@ -714,6 +699,7 @@ export default function App() {
               Join by Link
             </button>
           </div>
+
           {lastSession?.code && (
             <div className="prev-session">
               <p className="muted">
@@ -740,6 +726,7 @@ export default function App() {
               </div>
             </div>
           )}
+
           <p className="hint">
             No data leaves your browser until you create or join a session.
           </p>
@@ -748,7 +735,6 @@ export default function App() {
     );
   }
 
-  // Shared session screen
   return (
     <div className="session full-viewport">
       <Toaster
@@ -761,6 +747,7 @@ export default function App() {
           },
         }}
       />
+
       {connectionStatus !== "connected" && code && (
         <div className={`conn-banner ${connectionStatus}`}>
           <strong>
@@ -795,6 +782,7 @@ export default function App() {
           </div>
         </div>
       )}
+
       <div className="layout">
         <div className="main-card">
           <div className="top-row-mobile">
@@ -805,6 +793,7 @@ export default function App() {
               History
             </button>
           </div>
+
           <div className="editor-header">
             <h2>Shared Clipboard</h2>
             <div className="editor-prefs">
@@ -816,7 +805,11 @@ export default function App() {
                   try {
                     await window.__convexClient?.mutation(
                       "functions:updateSessionPrefs",
-                      { code, lang: newLang, autoFormat }
+                      {
+                        code,
+                        lang: newLang,
+                        autoFormat,
+                      }
                     );
                   } catch {}
                 }}
@@ -843,15 +836,20 @@ export default function App() {
                     try {
                       await window.__convexClient?.mutation(
                         "functions:updateSessionPrefs",
-                        { code, lang, autoFormat: v }
+                        {
+                          code,
+                          lang,
+                          autoFormat: v,
+                        }
                       );
                     } catch {}
                   }}
-                />
+                />{" "}
                 Fmt
               </label>
             </div>
           </div>
+
           <div className="shared-editor">
             <MonacoClipboard
               ref={textareaRef}
@@ -864,6 +862,7 @@ export default function App() {
               onPaste={handlePaste}
             />
           </div>
+
           <div className="status-bar">
             <span className="pill">v{version ?? 0}</span>
             {editingVersion != null && (
@@ -880,6 +879,7 @@ export default function App() {
             </span>
             <span className="muted flex1 right">Autosaves while you type</span>
           </div>
+
           {saveError && editingVersion == null && (
             <div className="error-box">Save error: {saveError}</div>
           )}
@@ -889,6 +889,7 @@ export default function App() {
               Cancel.
             </div>
           )}
+
           <div className="actions wrap">
             <button
               onClick={() => syncUpdate()}
@@ -931,6 +932,7 @@ export default function App() {
               Leave & Forget
             </button>
           </div>
+
           {showShare && (
             <SharePanel
               code={code}
@@ -943,6 +945,7 @@ export default function App() {
             />
           )}
         </div>
+
         <div className="side-card hide-on-narrow">
           <div className="side-head">
             <h2>History</h2>
@@ -978,6 +981,7 @@ export default function App() {
           </div>
         </div>
       </div>
+
       {showHistoryDrawer && (
         <div className="history-drawer">
           <div className="drawer-head">

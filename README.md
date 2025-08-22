@@ -1,24 +1,52 @@
 ## Online Clipboard (Convex + React)
 
-Dev setup:
+Single-root project (flattened from previous frontend/backend structure on 2025-08-22). Source lives in `src/` and Convex functions in `convex/`.
 
-1. Install root deps (workspace): `npm install` (adds convex dev dep).
-2. Run Convex dev (separate shell) or use provided script: `npx convex dev` in project root (or `npm run dev:convex`).
-3. Copy the Convex deployment URL output and set it in `frontend/.env`:
+### Dev Setup
 
+1. Install deps:
+   ```bash
+   npm install
+   ```
+2. Start concurrent Convex dev + Vite dev:
+   ```bash
+   npm run dev
+   ```
+3. Provide Convex URL via `.env.local` in project root:
+   ```
+   VITE_CONVEX_URL=https://YOUR-DEPLOYMENT.convex.cloud
+   ```
+4. Open http://localhost:5173
+
+### Build
+
+```bash
+npm run build
 ```
-VITE_CONVEX_URL=https://YOUR-DEPLOYMENT.convex.cloud
-```
 
-4. Start frontend dev server: `cd frontend && npm run dev`.
+Outputs static site in `dist/` for GitHub Pages (workflow provided) including `CNAME`.
 
-If TypeScript can't resolve `convex/values`, ensure the `convex` package is installed where TypeScript is running and that the `convex` folder is included in `tsconfig.json`.
+### Scripts
 
-The backend Express server is now only a Socket.IO relay and health endpoint; persistence lives in Convex functions under `convex/`.
+| Script  | Purpose                             |
+| ------- | ----------------------------------- |
+| dev     | Runs Convex dev + Vite dev together |
+| convex  | Only Convex dev server              |
+| build   | Production build                    |
+| preview | Preview built dist                  |
+| clean   | Remove node_modules/.vite           |
 
-# Online Clipboard (MERN E2E Encrypted)
+### Environment
 
-Monorepo containing backend (Express/Mongo) and frontend (Vite) for a secure online clipboard with:
+`VITE_CONVEX_URL` required at build & runtime for browser client.
+
+### Notes
+
+Legacy Express/Mongo backend & old `frontend/` folder have been removed (flatten complete). Real-time updates currently rely on a lightweight Socket.IO relay (client initiated) alongside Convex for persistence. This can be eliminated later if Convex real-time queries fully replace the relay.
+
+# Feature Summary
+
+Secure online clipboard with:
 
 - End-to-end encryption (client AES-GCM) – server stores ciphertext only
 - Share methods: 5-char alphanumeric code, sharable link (token), QR code (encoded link)
@@ -28,25 +56,17 @@ Monorepo containing backend (Express/Mongo) and frontend (Vite) for a secure onl
 - Multi-select history delete & undo last delete
 - Auto / manual rejoin of last session after refresh or disconnect
 
-## Architecture
+## Architecture Overview
 
-- Backend: stateless session logic; no plaintext. Each session has short code + link token.
-- Client derives secret key from (code + token) -> PBKDF2 -> AES-GCM.
-- Updates broadcast over websocket (ciphertext only).
+- Client derives secret key from (code + token) -> PBKDF2 -> AES-GCM (ciphertext only leaves browser)
+- Convex functions store and query encrypted versions & session metadata
+- Socket.IO relay broadcasts ciphertext updates to peers in the same session room
 
 ## Running Locally
 
-1. Backend
-   cd backend
-   npm install
-   npm run dev
-2. Frontend
-   cd ../frontend
-   npm install
-   npm run dev
+1. Create `.env.local` with Convex URL (see above)
+2. `npm run dev`
 3. Open http://localhost:5173
-
-Adjust CORS_ORIGIN in backend .env if needed.
 
 ## Security Notes
 
@@ -64,11 +84,17 @@ Adjust CORS_ORIGIN in backend .env if needed.
 
 ## Potential Future Improvements
 
-- Batch delete API endpoint (single request) instead of sequential deletes
+- Batch delete API endpoint (single request) instead of sequential deletes (client already batches; server side future)
 - PWA + offline draft buffering
 - File / image attachment support (size capped, encrypted)
 - Replace PBKDF2 with Argon2id or scrypt and add per-session salt row
 - HMAC-signed websocket join token to harden real-time channel access
-- UI toast system & accessibility audit
-- Full migration from Mongo/Mongoose to Convex (schema & functions scaffold in /convex)
-- Progressive Web App (PWA) support (service worker + manifest) – planned
+- Accessibility audit & keyboard shortcuts expansion
+- Remove Socket.IO relay once Convex real-time fully suffices
+- Progressive Web App (PWA) support (service worker + manifest)
+
+---
+
+### Changelog
+
+- 2025-08-22: Flattened repository (removed legacy `frontend/` & `backend/`).

@@ -10,6 +10,7 @@ export function SharePanel({
   onForget,
 }) {
   const [collapsed, setCollapsed] = useState(false);
+
   return (
     <div className={"share-wrapper" + (collapsed ? " collapsed" : "")}>
       <div className="share-head-mobile">
@@ -23,6 +24,7 @@ export function SharePanel({
           {collapsed ? "Show" : "Hide"}
         </button>
       </div>
+
       {!collapsed && (
         <>
           <div className="share-grid">
@@ -30,6 +32,7 @@ export function SharePanel({
               <label>Session Code</label>
               <div className="inline-field">
                 <input
+                  className="big-input"
                   value={code}
                   readOnly
                   onClick={() => copy(code, "code")}
@@ -39,10 +42,12 @@ export function SharePanel({
                 </button>
               </div>
             </div>
+
             <div className="field">
               <label>Sharable Link</label>
               <div className="inline-field">
                 <input
+                  className="big-input"
                   value={link}
                   readOnly
                   onClick={() => copy(link, "link")}
@@ -53,12 +58,14 @@ export function SharePanel({
               </div>
             </div>
           </div>
+
           <div className="qr-flex">
             {qrDataUrl ? (
               <img src={qrDataUrl} alt="QR Code" className="qr" />
             ) : (
               <div className="qr placeholder">QR</div>
             )}
+
             <div className="qr-text">
               <p>
                 Scan this code or use the session code above on any device.

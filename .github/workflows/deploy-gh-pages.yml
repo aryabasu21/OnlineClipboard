@@ -4,7 +4,11 @@ on:
   push:
     branches: [ main, master ]
     paths:
-      - 'frontend/**'
+      - 'src/**'
+      - 'convex/**'
+      - 'index.html'
+      - 'vite.config.js'
+      - 'public/**'
       - '.github/workflows/deploy-gh-pages.yml'
   workflow_dispatch:
 
@@ -20,19 +24,16 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+    - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      cache: 'npm'
+      cache-dependency-path: package-lock.json
 
       - name: Install deps
         run: npm ci
@@ -49,7 +50,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/dist
+          path: dist
 
   deploy:
     needs: build

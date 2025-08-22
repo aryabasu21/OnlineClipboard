@@ -26,18 +26,21 @@
   --font-stack:
     system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans,
     sans-serif;
-  --font-size-base: clamp(14px, 1.15vw, 17px);
-  --font-size-small: clamp(0.62rem, 0.7vw, 0.72rem);
-  --font-size-tiny: clamp(0.5rem, 0.55vw, 0.6rem);
-  --code-size: clamp(0.62rem, 0.72vw, 0.78rem);
+  /* Slightly larger base scales for better readability */
+  --font-size-base: clamp(15px, 1.2vw, 18px);
+  --font-size-small: clamp(0.72rem, 0.78vw, 0.8rem);
+  --font-size-tiny: clamp(0.58rem, 0.65vw, 0.68rem);
+  --code-size: clamp(0.68rem, 0.8vw, 0.86rem);
+  /* Button-specific scale so we can tune independently of inputs */
+  --font-size-button: calc(var(--font-size-small) * 1.12);
   font-family: var(--font-stack);
 }
 @media (max-width: 640px) {
   :root {
-    --font-size-base: 15px;
-    --font-size-small: 0.7rem;
-    --font-size-tiny: 0.58rem;
-    --code-size: 0.7rem;
+    --font-size-base: 16px;
+    --font-size-small: 0.78rem;
+    --font-size-tiny: 0.62rem;
+    --code-size: 0.74rem;
   }
 }
 html,
@@ -46,6 +49,7 @@ body,
   height: 100%;
 }
 body {
+  margin: 0;
   background:
     radial-gradient(circle at 25% 18%, #132230, #0b141c 55%) fixed,
     linear-gradient(145deg, #0b1219, #101a24 38%, #0b141c);
@@ -72,6 +76,16 @@ h3 {
   letter-spacing: 0.5px;
   line-height: 1.15;
 }
+/* Define clear heading sizes (slightly larger than before) */
+h1 {
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+}
+h2 {
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+}
+h3 {
+  font-size: clamp(1rem, 1.6vw, 1.3rem);
+}
 .lead {
   margin-top: 0.25rem;
   opacity: 0.78;
@@ -92,7 +106,7 @@ button {
   background: var(--accent);
   border: 1px solid var(--accent-glow);
   color: #fff;
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-button);
   letter-spacing: 0.5px;
   padding: 0.55rem 0.95rem 0.6rem;
   border-radius: var(--radius-sm);
@@ -136,7 +150,7 @@ button.good:hover {
 }
 button.mini,
 .mini {
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   padding: 0.35rem 0.55rem;
 }
 button:disabled {
@@ -427,7 +441,7 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
-  font-size: 0.55rem;
+  font-size: 0.6rem;
   margin-bottom: 0.5rem;
 }
 .history-scroll {
@@ -725,7 +739,7 @@ textarea {
 }
 .field label {
   display: block;
-  font-size: 0.55rem;
+  font-size: 0.62rem;
   letter-spacing: 0.5px;
   text-transform: uppercase;
   margin-bottom: 0.3rem;
@@ -735,6 +749,32 @@ textarea {
   display: flex;
   gap: 0.4rem;
   margin-bottom: 0.8rem;
+  align-items: stretch;
+}
+.inline-field .big-input {
+  font-size: clamp(1.05rem, 1.3vw, 1.2rem);
+  padding: 0.7rem 0.75rem;
+}
+.inline-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.inline-field button.mini {
+  display: inline-flex;
+  align-items: center;
+  height: auto;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+@media (max-width: 520px) {
+  .inline-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+  .inline-field button.mini {
+    width: 100%;
+  }
 }
 .qr-flex {
   display: flex;
@@ -783,7 +823,7 @@ textarea {
   padding: 0.55rem 0.75rem;
   border-radius: var(--radius-sm);
   margin-bottom: 0.85rem;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
 }
 .conn-banner.disconnected {
   background: #5c1d1d;
@@ -924,9 +964,14 @@ textarea::-webkit-scrollbar-thumb:hover {
 .hist-row.expanded .hist-preview::-webkit-scrollbar {
   display: none;
 }
-
+.side-meta {
+  gap: 0.45rem;
+  font-size: 0.56rem;
+}
 .hist-row.expanded .fade-edge {
-  display: none;
+  .history-drawer .drawer-head strong {
+    font-size: 0.78rem;
+  }
 }
 .hist-row .expand-btn {
   position: absolute;

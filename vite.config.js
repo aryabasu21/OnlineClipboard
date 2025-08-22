@@ -10,19 +10,21 @@ export default defineConfig({
     },
   },
   build: {
-    // Adjust if you still want warnings, but default 500k was noisy due to Monaco/Prettier.
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 2500,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
+            if (id.includes("monaco-editor/esm/vs/editor/editor.worker"))
+              return "monaco-worker-core";
+            if (id.includes("monaco-editor/esm/vs/language"))
+              return "monaco-workers";
             if (id.includes("monaco-editor")) return "monaco";
             if (id.includes("prettier")) return "prettier";
             if (id.includes("prismjs")) return "prism";
             if (id.includes("socket.io")) return "socket";
             if (id.includes("convex")) return "convex";
             if (id.includes("react")) return "react-vendor";
-            // Everything else
             return "vendor";
           }
         },
