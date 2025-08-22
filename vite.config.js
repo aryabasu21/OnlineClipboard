@@ -1,12 +1,15 @@
-import react from "@vitejs/plugin-react";
 
 export default {
-  plugins: [react()],
+  // Build without @vitejs/plugin-react to avoid hard dependency in CI
   server: { host: true, port: 5173 },
   resolve: {
     alias: {
       "convex/react": "convex/dist/esm/react/index.js",
     },
+  },
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react',
   },
   build: {
     chunkSizeWarningLimit: 2500,
