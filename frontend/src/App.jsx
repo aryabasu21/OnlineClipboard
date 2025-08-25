@@ -674,6 +674,7 @@ export default function App() {
               onChange={(v) => setClipboard(v)}
               editingVersion={null}
               onPaste={handlePaste}
+              options={{formatOnPaste: true,formatOnType: true, autoIndent: "full"}}
             />
           </div>
           <div className="actions">
