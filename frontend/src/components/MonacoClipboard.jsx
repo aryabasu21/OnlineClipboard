@@ -93,6 +93,7 @@ export const MonacoClipboard = forwardRef(function MonacoClipboard(
         folding: false,
         contextmenu: false,
         readOnly: false,
+        options={{formatOnPaste: true,formatOnType: true, autoIndent: "full",}}
       });
 
       // Collect real disposable objects only (addCommand returns an ID number, not disposable)
