@@ -2,14 +2,15 @@
   "name": "online-clipboard",
   "private": true,
   "type": "module",
-  "scripts": {
+"scripts": {
     "dev": "concurrently \"npm:socket\" \"npm:convex\" \"vite\"",
     "convex": "convex dev",
     "socket": "node server.js",
+    "start": "node server.js",
     "build": "vite build || npx vite@^5 build",
     "preview": "vite preview",
     "clean": "rimraf node_modules .vite || true"
-  },
+},
   "dependencies": {
     "convex": "^1.25.4",
     "lucide-react": "^0.540.0",
